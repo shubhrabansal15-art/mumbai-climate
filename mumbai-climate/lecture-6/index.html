@@ -1,1 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mumbai Climate Analytics 2024</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap');
 
+:root {
+  --bg: #0a0e1a;
+  --bg2: #111827;
+  --bg3: #1a2235;
+  --border: #1e2d45;
+  --accent: #00d4ff;
+  --accent2: #ff6b35;
+  --accent3: #7fff6b;
+  --accent4: #c084fc;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --card: #0f1829;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none; z-index:0;
+}
+
+.header {
+  position:relative; z-index:10;
+  padding:28px 40px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(180deg,rgba(0,212,255,0.04) 0%,transparent 100%);
+}
+.header-left h1 {
+  font-family:'Syne',sans-serif; font-weight:800; font-size:1.6rem;
+  letter-spacing:-0.02em; color:#fff;
+}
+.header-left h1 span { color:var(--accent); }
+.header-left p { font-size:0.7rem; color:var(--muted); margin-top:3px; letter-spacing:0.1em; text-transform:uppercase; }
+.badge {
+  background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3);
+  color:var(--accent); font-size:0.65rem; padding:4px 10px; letter-spacing:0.12em; text-transform:uppercase;
+}
+
+.main {
+  position:relative; z-index:1;
+  padding:28px 40px;
+  display:grid; grid-template-columns:280px 1fr; gap:24px;
+  max-width:1400px; margin:0 auto;
+}
+
+.sidebar { display:flex; flex-direction:column; gap:16px; }
+
+.card {
+  background:var(--card); border:1px solid var(--border); padding:20px;
+}
+.card-title {
+  font-family:'Syne',sans-serif; font-size:0.7rem; font-weight:600;
+  letter-spacing:0.15em; text-transform:uppercase; color:var(--accent);
+  margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+
+.stat-row {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:5px 0; border-bottom:1px solid rgba(30,45,69,0.6); font-size:0.67rem;
+}
+.stat-row:last-child { border-bottom:none; }
+.stat-row .lbl { color:var(--muted); }
+.stat-row .val { font-weight:700; }
+.stat-row .val.c { color:var(--accent); }
+.stat-row .val.o { color:var(--accent2); }
+.stat-row .val.g { color:var(--accent3); }
+.stat-row .val.p { color:var(--accent4); }
+
+.season-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.s-box {
+  padding:8px 10px; border:1px solid var(--border); background:var(--bg3);
+  font-size:0.6rem;
+}
+.s-box .s-name { text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; font-weight:700; }
+.s-box .s-val  { color:var(--text); font-size:0.68rem; }
+.s-winter  { border-color:#2471a388; } .s-winter  .s-name { color:#60a5fa; }
+.s-summer  { border-color:#d4a85388; } .s-summer  .s-name { color:#fbbf24; }
+.s-monsoon { border-color:#1a6b5e88; } .s-monsoon .s-name { color:#34d399; }
+.s-post    { border-color:#7b3f9e88; } .s-post    .s-name { color:#c084fc; }
+
+.concepts { font-size:0.63rem; color:var(--muted); line-height:2; }
+.concepts div { padding:2px 0; }
+
+.content-area { display:flex; flex-direction:column; gap:20px; }
+
+.tabs { display:flex; border-bottom:1px solid var(--border); }
+.tab {
+  padding:10px 18px; font-family:'Space Mono',monospace; font-size:0.65rem;
+  letter-spacing:0.08em; text-transform:uppercase; color:var(--muted);
+  cursor:pointer; border:none; background:none;
+  border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.2s;
+}
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab:hover:not(.active) { color:var(--text); }
+
+.panel { display:none; }
+.panel.active { display:grid; }
+#panel-overview   { grid-template-columns:1fr 1fr; gap:20px; }
+#panel-dist       { grid-template-columns:1fr 1fr; gap:20px; }
+#panel-seasonal   { grid-template-columns:1fr 1fr; gap:20px; }
+#panel-joint      { grid-template-columns:1fr; gap:20px; }
+#panel-timeseries { grid-template-columns:1fr; gap:20px; }
+
+.chart-card {
+  background:var(--card); border:1px solid var(--border); padding:20px; position:relative;
+}
+.chart-title {
+  font-family:'Syne',sans-serif; font-size:0.75rem; font-weight:600;
+  letter-spacing:0.1em; text-transform:uppercase; color:var(--text); margin-bottom:4px;
+}
+.chart-sub { font-size:0.62rem; color:var(--muted); margin-bottom:16px; }
+canvas { max-height:220px; }
+
+.insight-box {
+  background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.2);
+  padding:12px 16px; font-size:0.67rem; color:var(--muted); line-height:1.8; margin-top:12px;
+}
+.insight-box strong { color:var(--accent); }
+.insight-box .num   { color:var(--accent2); font-weight:700; }
+
+.cond-table { width:100%; border-collapse:collapse; font-size:0.65rem; margin-top:10px; }
+.cond-table th {
+  text-align:left; color:var(--muted); padding:6px 8px;
+  border-bottom:1px solid var(--border); text-transform:uppercase;
+  letter-spacing:0.07em; font-weight:400; font-size:0.58rem;
+}
+.cond-table td { padding:7px 8px; border-bottom:1px solid rgba(30,45,69,0.5); }
+.cond-table tr:hover td { background:rgba(0,212,255,0.03); }
+.pill { display:inline-block; padding:2px 8px; font-size:0.58rem; font-weight:700; }
+.pill-g { background:rgba(127,255,107,0.12); color:var(--accent3); }
+.pill-y { background:rgba(255,107,53,0.12);  color:var(--accent2); }
+.pill-r { background:rgba(255,80,80,0.12);   color:#ff5050; }
+
+@media(max-width:900px){
+  .main{grid-template-columns:1fr;padding:16px;}
+  #panel-overview,#panel-dist,#panel-seasonal{grid-template-columns:1fr;}
+  .header{padding:20px;flex-direction:column;gap:10px;align-items:flex-start;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Mumbai <span>Climate</span> Analytics</h1>
+    <p>Real data · Jan 1 – Dec 31, 2024 · N = 366 days</p>
+  </div>
+  <div class="badge">Live · Real Data</div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">📐 Descriptive Stats</div>
+      <div id="desc-stats"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🗓 Seasonal Means</div>
+      <div class="season-grid" id="season-boxes"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📖 Concepts</div>
+      <div class="concepts">
+        <div><span style="color:var(--accent)">Marginal P(X)</span> — single-variable dist</div>
+        <div><span style="color:var(--accent2)">Joint P(X,Y)</span> — two variables together</div>
+        <div><span style="color:var(--accent3)">Conditional P(X|Y)</span> — given wind speed</div>
+        <div><span style="color:var(--accent4)">Normal dist</span> — µ & σ from your data</div>
+        <div><span style="color:#60a5fa">Seasonality</span> — monsoon vs dry splits</div>
+        <div><span style="color:#ff5050">Pearson r</span> — real correlations</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('overview',event)">Marginal Dists</button>
+      <button class="tab" onclick="switchTab('dist',event)">Dist Fits</button>
+      <button class="tab" onclick="switchTab('seasonal',event)">Seasonal</button>
+      <button class="tab" onclick="switchTab('joint',event)">Joint & Conditional</button>
+      <button class="tab" onclick="switchTab('timeseries',event)">Time Series</button>
+    </div>
+
+    <!-- TAB 1 -->
+    <div id="panel-overview" class="panel active">
+      <div class="chart-card">
+        <div class="chart-title">Temperature (°C) — Marginal</div>
+        <div class="chart-sub">Empirical histogram + fitted normal · µ & σ from data</div>
+        <canvas id="ch-temp-hist"></canvas>
+        <div class="insight-box" id="ins-temp"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">PM2.5 (µg/m³) — Marginal</div>
+        <div class="chart-sub">Histogram + normal fit · note right skew</div>
+        <canvas id="ch-pm-hist"></canvas>
+        <div class="insight-box" id="ins-pm"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Humidity (%) — Marginal</div>
+        <div class="chart-sub">Histogram + normal fit</div>
+        <canvas id="ch-hum-hist"></canvas>
+        <div class="insight-box" id="ins-hum"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Wind Speed (m/s) — Marginal</div>
+        <div class="chart-sub">Histogram + normal fit</div>
+        <canvas id="ch-ws-hist"></canvas>
+        <div class="insight-box" id="ins-ws"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2 -->
+    <div id="panel-dist" class="panel">
+      <div class="chart-card">
+        <div class="chart-title">PM2.5 — Normal vs Log-Normal vs KDE</div>
+        <div class="chart-sub">Which distribution actually fits your Mumbai data?</div>
+        <canvas id="ch-fits"></canvas>
+        <div class="insight-box" id="ins-fits"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Temperature — Normal + Shaded CDF</div>
+        <div class="chart-sub">Shaded area = P(T ≤ µ) = 50%</div>
+        <canvas id="ch-norm-temp"></canvas>
+        <div class="insight-box" id="ins-norm-temp"></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-title">Empirical CDF — All Variables (Z-score normalised)</div>
+        <div class="chart-sub">P(X ≤ x) plotted on Z-score axis — steeper = less spread</div>
+        <canvas id="ch-cdf" style="max-height:200px"></canvas>
+        <div class="insight-box">
+          <strong>Reading the CDF:</strong> Y-value = fraction of days below that Z-score. All 4 variables on the same axis via standardisation. Steeper slope = tighter distribution (less variance).
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3 -->
+    <div id="panel-seasonal" class="panel">
+      <div class="chart-card">
+        <div class="chart-title">PM2.5 by Season — Mean ± σ</div>
+        <div class="chart-sub">Computed from your data · monsoon dispersal visible</div>
+        <canvas id="ch-season-pm"></canvas>
+        <div class="insight-box" id="ins-season-pm"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Temperature by Season — Mean ± σ</div>
+        <div class="chart-sub">Mumbai's coastal moderation limits seasonal swing</div>
+        <canvas id="ch-season-temp"></canvas>
+        <div class="insight-box" id="ins-season-temp"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Monthly Mean PM2.5 — Full Year</div>
+        <div class="chart-sub">12-month bar · colour = season</div>
+        <canvas id="ch-monthly-pm"></canvas>
+        <div class="insight-box" id="ins-monthly"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Humidity by Season — Mean ± σ</div>
+        <div class="chart-sub">Monsoon spike clearly visible in real data</div>
+        <canvas id="ch-season-hum"></canvas>
+        <div class="insight-box" id="ins-season-hum"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4 -->
+    <div id="panel-joint" class="panel">
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-title">Joint Distribution — PM2.5 × Wind Speed (real data)</div>
+        <div class="chart-sub">Each bubble = one day · size ∝ PM2.5 · colour = season</div>
+        <canvas id="ch-joint" style="max-height:300px"></canvas>
+        <div class="insight-box" id="ins-joint"></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-title">Conditional P(PM2.5 category | Wind Speed) — empirical counts</div>
+        <div class="chart-sub">Computed directly from your 366 rows — not assumed</div>
+        <canvas id="ch-cond-bar" style="max-height:230px"></canvas>
+        <div class="insight-box" id="ins-cond"></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-title">Conditional Risk Table — real empirical probabilities</div>
+        <div class="chart-sub">P(PM2.5 > threshold | wind category) from actual counts</div>
+        <table class="cond-table">
+          <tr>
+            <th>Wind Category</th><th>n days</th>
+            <th>P(PM2.5 > 35)</th><th>P(PM2.5 > 55)</th><th>P(PM2.5 > 80)</th>
+            <th>Mean PM2.5</th><th>Risk</th>
+          </tr>
+          <tbody id="cond-table-body"></tbody>
+        </table>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-title">Pearson Correlation Matrix — real r values</div>
+        <div class="chart-sub">Computed from Mumbai 2024 · hover for exact r</div>
+        <canvas id="ch-corr" style="max-height:230px"></canvas>
+        <div class="insight-box" id="ins-corr"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5 -->
+    <div id="panel-timeseries" class="panel">
+      <div class="chart-card">
+        <div class="chart-title">PM2.5 — Daily + 30-day Rolling Mean</div>
+        <div class="chart-sub">Thin line = raw daily · thick = rolling mean trend</div>
+        <canvas id="ch-ts-pm" style="max-height:220px"></canvas>
+        <div class="insight-box">
+          <strong>Rolling mean:</strong> Smooths day-to-day noise to reveal the seasonal trend. Gap between raw and rolling = day-to-day variance. Spikes above rolling = pollution events.
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Temperature — Daily Values Full Year</div>
+        <div class="chart-sub">Mumbai's narrow annual range — coastal dampening effect</div>
+        <canvas id="ch-ts-temp" style="max-height:220px"></canvas>
+        <div class="insight-box" id="ins-ts-temp"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">All Variables — Monthly Means (Z-score normalised)</div>
+        <div class="chart-sub">All 4 variables on same axis · zero = annual mean</div>
+        <canvas id="ch-ts-all" style="max-height:220px"></canvas>
+        <div class="insight-box">
+          <strong>Z-score normalisation:</strong> z = (x − µ) / σ. Lets you compare variables with different units on the same plot. Values above 0 = above annual average for that variable.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW=[["2024-01-01",33.988,64.830,41.653,2.950],["2024-01-02",null,75.801,53.093,2.186],["2024-01-03",29.051,86.050,72.826,3.799],["2024-01-04",27.028,65.548,92.117,2.951],["2024-01-05",26.788,57.892,38.735,2.466],["2024-01-06",25.684,79.433,45.337,3.482],["2024-01-07",31.693,81.843,57.408,1.876],["2024-01-08",30.887,78.188,89.443,3.186],["2024-01-09",25.121,82.446,33.204,3.128],["2024-01-10",30.659,73.551,41.916,3.639],["2024-01-11",32.036,null,65.476,3.096],["2024-01-12",35.668,71.339,102.995,2.740],["2024-01-13",null,90.341,41.833,2.925],["2024-01-14",30.312,72.371,75.934,3.888],["2024-01-15",28.557,76.736,44.232,2.901],["2024-01-16",32.551,80.616,79.918,null],["2024-01-17",34.360,85.059,46.443,0.988],["2024-01-18",33.173,66.275,59.067,null],["2024-01-19",30.497,71.335,50.654,3.377],["2024-01-20",31.545,66.799,75.368,2.253],["2024-01-21",25.989,90.629,57.254,3.097],["2024-01-22",31.689,73.977,89.210,2.713],["2024-01-23",34.179,70.089,68.605,1.991],["2024-01-24",29.810,86.198,41.125,2.441],["2024-01-25",30.365,72.012,75.507,4.716],["2024-01-26",33.623,78.840,29.963,2.393],["2024-01-27",29.994,91.337,44.167,2.097],["2024-01-28",null,87.689,57.324,3.013],["2024-01-29",31.063,null,null,2.030],["2024-01-30",33.113,68.117,68.797,3.445],["2024-01-31",null,69.616,41.073,3.423],["2024-02-01",31.559,77.027,56.463,2.605],["2024-02-02",35.060,79.301,34.969,2.473],["2024-02-03",26.022,61.182,86.343,3.390],["2024-02-04",34.287,73.876,42.568,3.244],["2024-02-05",23.732,90.487,36.543,2.951],["2024-02-06",29.611,null,78.883,2.654],["2024-02-07",31.895,68.079,46.246,2.740],["2024-02-08",28.240,71.153,29.704,1.697],["2024-02-09",30.872,61.385,52.130,3.613],["2024-02-10",33.792,86.500,null,4.322],["2024-02-11",null,82.886,55.015,null],["2024-02-12",24.089,null,45.682,2.529],["2024-02-13",32.412,82.390,52.605,2.539],["2024-02-14",33.092,83.562,46.828,3.510],["2024-02-15",30.354,86.950,32.467,3.798],["2024-02-16",29.934,57.945,89.491,2.808],["2024-02-17",30.141,88.804,54.113,2.019],["2024-02-18",25.114,null,78.221,3.214],["2024-02-19",28.823,null,74.847,null],["2024-02-20",35.103,72.191,38.774,2.745],["2024-02-21",33.184,66.306,59.979,3.013],["2024-02-22",null,null,54.058,3.885],["2024-02-23",28.692,84.145,50.501,3.114],["2024-02-24",29.001,46.815,63.923,2.668],["2024-02-25",31.806,73.764,40.986,2.954],["2024-02-26",null,82.040,19.916,2.963],["2024-02-27",30.110,null,75.445,2.644],["2024-02-28",28.383,82.776,null,2.856],["2024-02-29",31.498,73.978,49.607,3.498],["2024-03-01",27.864,66.655,35.409,3.243],["2024-03-02",29.289,68.381,46.943,null],["2024-03-03",32.571,63.122,82.644,2.397],["2024-03-04",24.353,71.984,36.811,2.197],["2024-03-05",31.262,65.786,78.653,2.743],["2024-03-06",26.792,85.299,73.727,2.444],["2024-03-07",22.269,62.656,107.815,4.430],["2024-03-08",26.325,73.420,60.397,2.330],["2024-03-09",26.530,78.825,null,1.740],["2024-03-10",32.794,77.576,21.221,4.092],["2024-03-11",null,85.191,66.757,2.356],["2024-03-12",36.678,59.368,77.869,3.967],["2024-03-13",28.744,null,83.635,3.677],["2024-03-14",28.999,null,87.274,null],["2024-03-15",29.558,null,61.947,null],["2024-03-16",34.684,74.168,71.630,3.038],["2024-03-17",null,71.346,null,2.739],["2024-03-18",30.088,null,37.342,2.816],["2024-03-19",27.443,78.471,71.129,2.723],["2024-03-20",35.944,58.904,62.516,2.419],["2024-03-21",25.109,74.333,68.910,2.247],["2024-03-22",29.295,77.425,72.074,2.958],["2024-03-23",29.508,90.619,47.594,4.006],["2024-03-24",31.975,80.448,16.213,3.821],["2024-03-25",null,78.288,78.131,3.085],["2024-03-26",34.061,77.641,38.067,null],["2024-03-27",29.614,64.439,65.287,3.473],["2024-03-28",27.080,59.050,76.434,3.779],["2024-03-29",27.917,64.814,40.789,2.220],["2024-03-30",null,88.805,43.960,3.225],["2024-03-31",28.261,null,61.631,2.442],["2024-04-01",32.613,73.272,54.423,3.270],["2024-04-02",null,47.566,104.162,2.902],["2024-04-03",31.270,71.392,null,2.724],["2024-04-04",35.923,70.416,37.684,1.874],["2024-04-05",30.919,62.554,87.553,2.283],["2024-04-06",32.998,66.297,58.639,2.958],["2024-04-07",32.617,81.764,71.485,1.916],["2024-04-08",24.396,71.941,52.429,2.781],["2024-04-09",33.692,60.605,75.675,null],["2024-04-10",29.614,70.126,119.640,3.594],["2024-04-11",32.525,72.882,53.663,2.776],["2024-04-12",33.314,68.504,11.795,2.447],["2024-04-13",31.402,75.832,66.754,3.896],["2024-04-14",null,86.079,47.510,2.987],["2024-04-15",26.152,79.537,70.915,3.564],["2024-04-16",32.436,54.735,68.137,2.447],["2024-04-17",30.281,62.611,55.472,2.729],["2024-04-18",31.427,70.348,63.867,2.985],["2024-04-19",32.972,79.808,104.292,3.517],["2024-04-20",26.644,85.324,null,3.785],["2024-04-21",32.979,null,33.901,3.783],["2024-04-22",34.168,70.770,70.077,2.884],["2024-04-23",28.854,85.199,null,null],["2024-04-24",24.732,92.482,58.064,3.783],["2024-04-25",null,62.343,40.823,3.323],["2024-04-26",32.008,70.278,86.462,3.118],["2024-04-27",null,76.463,70.818,3.000],["2024-04-28",30.023,75.495,37.969,3.460],["2024-04-29",28.146,77.947,25.285,2.821],["2024-04-30",28.034,85.347,67.140,3.140],["2024-05-01",30.398,null,51.537,4.406],["2024-05-02",30.207,66.056,59.821,2.463],["2024-05-03",28.938,85.407,54.841,3.484],["2024-05-04",27.300,77.474,34.686,3.266],["2024-05-05",null,82.567,73.243,3.496],["2024-05-06",26.535,55.053,54.974,2.323],["2024-05-07",25.086,68.073,54.741,2.132],["2024-05-08",25.685,99.258,79.069,3.885],["2024-05-09",25.001,61.035,76.555,null],["2024-05-10",31.711,56.992,36.134,3.167],["2024-05-11",27.627,74.944,82.124,2.939],["2024-05-12",32.204,84.835,103.774,3.011],["2024-05-13",31.035,61.745,43.837,3.481],["2024-05-14",35.111,72.239,74.058,3.978],["2024-05-15",32.080,76.735,null,3.770],["2024-05-16",32.222,75.076,21.401,2.673],["2024-05-17",28.234,null,46.675,2.434],["2024-05-18",24.547,94.781,56.740,3.333],["2024-05-19",31.808,78.360,63.100,2.894],["2024-05-20",33.401,74.504,51.563,2.466],["2024-05-21",28.675,null,79.022,2.784],["2024-05-22",28.342,87.997,50.574,2.142],["2024-05-23",28.720,70.540,82.541,null],["2024-05-24",27.792,76.065,17.471,2.522],["2024-05-25",33.436,79.726,63.891,3.694],["2024-05-26",29.477,89.310,null,2.148],["2024-05-27",32.203,84.121,84.015,3.088],["2024-05-28",null,73.736,49.682,null],["2024-05-29",27.284,80.208,81.802,2.473],["2024-05-30",35.644,65.843,73.910,3.110],["2024-05-31",29.321,72.347,75.050,2.639],["2024-06-01",27.584,84.558,44.876,2.743],["2024-06-02",34.219,73.302,92.634,2.482],["2024-06-03",31.944,79.535,40.036,2.584],["2024-06-04",28.905,null,140.388,3.248],["2024-06-05",26.936,69.398,31.761,1.920],["2024-06-06",25.527,92.410,null,2.689],["2024-06-07",27.010,55.161,null,3.168],["2024-06-08",31.221,66.680,82.451,2.058],["2024-06-09",null,85.904,null,3.945],["2024-06-10",null,85.386,66.658,3.864],["2024-06-11",28.662,67.886,55.865,2.050],["2024-06-12",32.479,57.956,41.766,3.384],["2024-06-13",null,81.708,82.309,3.925],["2024-06-14",30.397,77.829,84.224,3.184],["2024-06-15",30.241,null,60.105,2.790],["2024-06-16",29.513,77.169,57.925,2.320],["2024-06-17",29.944,null,58.639,null],["2024-06-18",28.487,62.999,64.261,2.221],["2024-06-19",29.491,60.221,84.190,null],["2024-06-20",35.528,78.343,null,2.870],["2024-06-21",30.676,81.978,54.430,3.839],["2024-06-22",34.164,100.742,41.763,3.174],["2024-06-23",34.260,70.673,81.740,3.805],["2024-06-24",31.691,90.261,56.305,3.630],["2024-06-25",33.685,79.125,63.748,2.959],["2024-06-26",31.451,79.049,null,3.781],["2024-06-27",30.097,81.196,null,3.964],["2024-06-28",29.251,null,72.707,2.940],["2024-06-29",28.004,70.905,86.391,1.525],["2024-06-30",27.438,76.545,58.367,3.053],["2024-07-01",null,76]]
